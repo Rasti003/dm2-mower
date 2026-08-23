@@ -1,6 +1,6 @@
-# ESP32 UART Logger — wersja 0.2
+# ESP32 UART Logger — wersja 0.3
 
-Pasywny logger czterech kanałów UART TTL 3,3 V dla ESP32-WROOM-32D / ESP32 DevKit. Trzy kanały korzystają ze sprzętowych UART-ów, a czwarty z SoftwareSerial.
+Logger czterech kanałów UART TTL 3,3 V dla ESP32-WROOM-32D / ESP32 DevKit. Trzy kanały korzystają ze sprzętowych UART-ów, a czwarty z SoftwareSerial. Rejestrowanie jest pasywne; opcjonalny, silnie ograniczony terminal nadaje wyłącznie na konsolę DM2 po jawnym uzbrojeniu.
 
 Repozytorium zawiera również `simulator-c3/` — firmware testowego ESP32-C3 z ekranem OLED, który wysyła ramki ASCII i binarne w konfiguracji 9600 8N1.
 
@@ -15,7 +15,24 @@ Repozytorium zawiera również `simulator-c3/` — firmware testowego ESP32-C3 z
 
 Każdą obserwowaną linię TX podłącz przez rezystor szeregowy 4,7 kΩ do wybranego GPIO. Połącz GND ESP32 z GND badanej płyty. Nie podłączaj żadnego TX z ESP32 do robota.
 
-GPIO25, GPIO26 i GPIO27 są technicznie przypisane jako nieużywane wyjścia TX. Zostaw je całkowicie niepodłączone.
+GPIO26 i GPIO27 są technicznie przypisane jako nieużywane wyjścia TX. Zostaw je całkowicie niepodłączone. GPIO25 jest wyjściem opcjonalnego terminala powiązanego z CH1 i normalnie również pozostaje niepodłączone.
+
+## Bezpieczny terminal DM2
+
+Terminal jest przeznaczony dla potwierdzonej konsoli głównego MCU POINT PORLMW1: **115200, 8N1, TTL 3,3 V**.
+
+```text
+DM2 TX  -> GPIO16 (CH1 RX loggera)
+DM2 RX  <- 1–4,7 kΩ <- GPIO25 (TX terminala)
+DM2 GND -> GND ESP32
+VCC     nie łączyć
+```
+
+Po każdym restarcie terminal jest rozbrojony. Panel wymaga potwierdzenia połączenia i uzbraja nadajnik tylko na dwie minuty. Dopuszczone są wyłącznie funkcje diagnostyczne odczytujące wersję, urządzenia, wątki, timery, kolejki, skrzynki, zdarzenia, muteksy, semafory, pule i stan pamięci. Klasyczny prompt `finsh >` wymaga składni wywołania funkcji z nawiasami. Każde wysłanie wymaga dodatkowego potwierdzenia. Komendy GPIO/PWM, aktualizacji, filesystemu i silników są blokowane przez firmware loggera.
+
+`ui_msg_test()` jest dopuszczone osobno jako fabryczny test interfejsu użytkownika, bez argumentów. Warianty z argumentami pozostają zablokowane, dopóki ich znaczenie nie zostanie potwierdzone.
+
+Znaki są wysyłane pojedynczo z krótkim odstępem, ponieważ konsola badanego DM2 gubiła co drugi znak podczas ciągłej transmisji. Polecenie jest kończone pojedynczym `CR`, aby FinSH nie wykonywał dodatkowego pustego polecenia po `LF`.
 
 ## Użycie
 
@@ -43,6 +60,8 @@ Liczniki `luki rekordów` i `zgubione zbocza` muszą pozostać równe zero. Przy
 
 ESP32 próbuje jednocześnie połączyć się z domową siecią Wi-Fi 2,4 GHz. Bieżący adres IP jest widoczny w panelu. Awaryjny punkt `UART-LOGGER` pozostaje aktywny, więc błędne hasło nie odcina dostępu do konfiguracji.
 
+Panel przechowuje dwa profile Wi-Fi. Można przełączyć aktywny profil jednym przyciskiem; wybór jest zapisywany w pamięci ESP32 i obowiązuje po restarcie. Nazwę i hasło aktywnego profilu można zmienić bez nadpisywania drugiego. Domyślne dane obu profili pochodzą z lokalnego, ignorowanego przez Git pliku `include/wifi_config.h`.
+
 ## Aktualizacja OTA
 
 Po pierwszym wgraniu przez USB kolejne wersje można wysyłać przez Wi-Fi. Najprościej uruchomić:
@@ -57,7 +76,7 @@ Klasyczne Arduino OTA na porcie 3232 także pozostaje aktywne, ale zapora system
 
 Domyślna konfiguracja to 9600, 8N1. Ustawienia są zapisywane w pamięci ESP32.
 
-## Ograniczenia wersji 0.2
+## Ograniczenia wersji 0.3
 
 - trzy sprzętowe kanały RX i jeden programowy;
 - podgląd znajduje się w buforze RAM i nie jest jeszcze zapisywany na microSD;

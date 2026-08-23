@@ -23,6 +23,11 @@ constexpr uint32_t RAW_TICK_NS = 250;
 constexpr size_t RAW_EVENT_CAPACITY = 96;
 constexpr size_t RAW_PULSE_CAPACITY = 64;
 constexpr size_t RAW_ISR_BUFFER_CAPACITY = 512;
+constexpr uint8_t TERMINAL_CHANNEL = 0;
+constexpr int TERMINAL_TX_PIN = 25;
+constexpr uint32_t TERMINAL_ARM_DURATION_MS = 120000;
+constexpr size_t TERMINAL_MAX_COMMAND_LENGTH = 32;
+constexpr uint32_t TERMINAL_INTER_BYTE_DELAY_MS = 3;
 
 struct CaptureEvent {
   uint32_t sequence;
@@ -93,6 +98,8 @@ size_t rawEventHead = 0;
 size_t rawEventCount = 0;
 uint32_t nextRawSequence = 1;
 uint32_t rawEvictedCount = 0;
+bool terminalArmed = false;
+uint32_t terminalArmedUntil = 0;
 
 const char INDEX_HTML[] PROGMEM = R"HTML(
 <!doctype html><html lang="pl"><head><meta charset="utf-8">
@@ -111,20 +118,23 @@ button{background:var(--accent);border:0;color:#052317;font-weight:700;cursor:po
 </style></head><body><main>
 <h1>ESP32 UART Logger <span id="status" class="status">łączenie…</span></h1>
 <div class="muted">4 wejścia RX · 3 sprzętowe + 1 programowe · czas od uruchomienia ESP32</div>
-<section class="card"><div id="network" class="muted">Ładowanie informacji o sieci…</div><div class="grid" style="margin-top:10px"><div><label>Nazwa sieci Wi-Fi 2,4 GHz</label><input id="ssid" autocomplete="off"></div><div><label>Hasło Wi-Fi</label><input id="wifiPassword" type="password" autocomplete="new-password" placeholder="pozostaw puste, aby nie zmieniać"></div></div><div class="actions" style="margin-top:10px"><button onclick="saveNetwork()">Zapisz Wi-Fi i uruchom ponownie</button><button onclick="location.href='/update'">Aktualizacja OTA</button></div></section>
+<section class="card"><div id="network" class="muted">Ładowanie informacji o sieci…</div><div class="grid" style="margin-top:10px"><div><label>Zapisany profil Wi-Fi</label><select id="wifiProfile"></select></div><div><label>Nazwa aktywnego profilu</label><input id="ssid" autocomplete="off"></div><div><label>Nowe hasło aktywnego profilu</label><input id="wifiPassword" type="password" autocomplete="new-password" placeholder="pozostaw puste, aby nie zmieniać"></div></div><div class="actions" style="margin-top:10px"><button onclick="switchNetwork()">Przełącz profil i uruchom ponownie</button><button onclick="saveNetwork()">Zapisz aktywny profil</button><button onclick="location.href='/update'">Aktualizacja OTA</button></div></section>
 <section class="card"><div class="grid" id="channels"></div><div style="margin-top:10px"><button onclick="saveConfig()">Zapisz konfigurację</button></div></section>
 <section class="card"><div class="actions"><button onclick="startRecording()" id="record">● Rozpocznij nagrywanie</button><button onclick="stopRecording()" id="stop" disabled>Zatrzymaj</button><button onclick="downloadRecording()" id="download" disabled>Pobierz .jsonl</button></div><p id="recordStats" class="muted">Nagrywanie w pamięci telefonu: wyłączone</p></section>
 <section class="card"><strong>Surowe zbocza — do wykrywania prędkości i formatu UART</strong><div class="actions" style="margin-top:10px"><button onclick="startRawRecording()" id="rawRecord">● Nagrywaj zbocza</button><button onclick="stopRawRecording()" id="rawStop" disabled>Zatrzymaj</button><button onclick="downloadRawRecording()" id="rawDownload" disabled>Pobierz raw .jsonl</button></div><p id="rawStats" class="muted">Nagrywanie surowe: wyłączone · rozdzielczość 0,25 µs</p></section>
+<section class="card"><strong>Terminal DM2 — CH1 RX / GPIO25 TX</strong><p class="muted">Tryb ograniczony do diagnostyki. Po każdym restarcie jest rozbrojony i wyłącza się automatycznie po 2 minutach. Połączenie fizyczne: GPIO25 przez 1–4,7 kΩ do RX kosiarki; bez łączenia VCC.</p><div class="actions"><button onclick="armTerminal()" id="terminalArm">Uzbrój na 2 minuty</button><button onclick="disarmTerminal()" id="terminalDisarm" disabled>Rozbrój</button></div><div class="actions" style="margin-top:10px"><select id="terminalCommand"><option value="">Enter — pokaż prompt</option><option>version()</option><option>list_device()</option><option>list_thread()</option><option>list_timer()</option><option>list_msgqueue()</option><option>list_mailbox()</option><option>list_event()</option><option>list_mutex()</option><option>list_sem()</option><option>list_mempool()</option><option>list_mem()</option><option>list_fd()</option><option>free()</option><option>time()</option><option>ui_msg_test()</option></select><button onclick="sendTerminal()" id="terminalSend" disabled>Wyślij</button></div><p id="terminalStatus" class="muted">Terminal rozbrojony</p></section>
 <section class="card"><div class="actions"><button onclick="clearView()">Wyczyść widok</button><button onclick="togglePause()" id="pause">Pauza</button></div><p class="muted">Format: czas, kanał, HEX oraz ASCII. Puste kropki oznaczają bajty niedrukowalne.</p><div id="log"></div></section>
 </main><script>
 let after=0,afterInitialized=false,paused=false,lines=[],recording=false,recorded=[],recordedBytes=0,dropped=0,recordStarted=null,wakeLock=null,currentConfig=[];
 let rawAfter=0,rawInitialized=false,rawRecording=false,rawRecorded=[],rawBytes=0,rawDropped=0,rawStarted=null,rawInputOverflow=0,rawOverflowBaseline=0;
-const statusEl=document.getElementById('status'),logEl=document.getElementById('log'),channelsEl=document.getElementById('channels'),networkEl=document.getElementById('network'),ssidEl=document.getElementById('ssid'),wifiPasswordEl=document.getElementById('wifiPassword'),pauseBtn=document.getElementById('pause'),recordBtn=document.getElementById('record'),stopBtn=document.getElementById('stop'),downloadBtn=document.getElementById('download'),recordStatsEl=document.getElementById('recordStats'),rawRecordBtn=document.getElementById('rawRecord'),rawStopBtn=document.getElementById('rawStop'),rawDownloadBtn=document.getElementById('rawDownload'),rawStatsEl=document.getElementById('rawStats'),pins=[16,17,32,33],bauds=[1200,2400,4800,9600,19200,38400,57600,115200,230400,460800,921600],formats=['8N1','8E1','8O1','7E1','7O1','8N2'];
+const statusEl=document.getElementById('status'),logEl=document.getElementById('log'),channelsEl=document.getElementById('channels'),networkEl=document.getElementById('network'),ssidEl=document.getElementById('ssid'),wifiPasswordEl=document.getElementById('wifiPassword'),wifiProfileEl=document.getElementById('wifiProfile'),pauseBtn=document.getElementById('pause'),recordBtn=document.getElementById('record'),stopBtn=document.getElementById('stop'),downloadBtn=document.getElementById('download'),recordStatsEl=document.getElementById('recordStats'),rawRecordBtn=document.getElementById('rawRecord'),rawStopBtn=document.getElementById('rawStop'),rawDownloadBtn=document.getElementById('rawDownload'),rawStatsEl=document.getElementById('rawStats'),pins=[16,17,32,33],bauds=[1200,2400,4800,9600,19200,38400,57600,115200,230400,460800,921600],formats=['8N1','8E1','8O1','7E1','7O1','8N2'];
+const terminalArmBtn=document.getElementById('terminalArm'),terminalDisarmBtn=document.getElementById('terminalDisarm'),terminalSendBtn=document.getElementById('terminalSend'),terminalCommandEl=document.getElementById('terminalCommand'),terminalStatusEl=document.getElementById('terminalStatus');
 function safe(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')}
 function controls(cfg){currentConfig=cfg;let h='';for(let i=0;i<4;i++){h+=`<div><label>Kanał ${i+1} — GPIO${pins[i]}${i===3?' (programowy)':''}</label><input id="n${i}" maxlength="24" value="${safe(cfg[i].name)}" placeholder="np. płyta → wyświetlacz"><select id="b${i}" style="margin-top:6px">${bauds.map(x=>`<option ${x==cfg[i].baud?'selected':''}>${x}</option>`).join('')}</select><select id="f${i}" style="margin-top:6px">${formats.map(x=>`<option ${x==cfg[i].format?'selected':''}>${x}</option>`).join('')}</select></div>`}channelsEl.innerHTML=h}
 async function loadConfig(){let r=await fetch('/api/config');controls(await r.json())}
-async function loadNetwork(){let r=await fetch('/api/network'),n=await r.json();ssidEl.value=n.ssid;networkEl.textContent=n.connected?`Połączono z ${n.ssid} · IP: ${n.ip} · OTA: ${n.host}.local · sygnał: ${n.rssi} dBm`:`Brak połączenia z routerem · awaryjny panel: ${n.apIp}`}
+async function loadNetwork(){let [r,p]=await Promise.all([fetch('/api/network'),fetch('/api/network/profiles')]),n=await r.json(),profiles=await p.json();wifiProfileEl.innerHTML=profiles.profiles.map((x,i)=>`<option value="${i}" ${i===profiles.active?'selected':''}>${safe(x.ssid)}</option>`).join('');ssidEl.value=n.ssid;networkEl.textContent=n.connected?`Połączono z ${n.ssid} · profil ${profiles.active+1} · IP: ${n.ip} · OTA: ${n.host}.local · sygnał: ${n.rssi} dBm`:`Brak połączenia z routerem · aktywny profil ${profiles.active+1} · awaryjny panel: ${n.apIp}`}
 async function saveNetwork(){let p=new URLSearchParams({ssid:ssidEl.value,password:wifiPasswordEl.value});let r=await fetch('/api/network',{method:'POST',body:p});if(r.ok){statusEl.textContent='restart…';networkEl.textContent='Zapisano. ESP32 uruchamia się ponownie…'}else alert(await r.text())}
+async function switchNetwork(){let selected=wifiProfileEl.value;if(!confirm(`Przełączyć na profil ${Number(selected)+1}: ${wifiProfileEl.options[wifiProfileEl.selectedIndex].text}?`))return;let r=await fetch('/api/network/profiles',{method:'POST',body:new URLSearchParams({active:selected})});if(r.ok){statusEl.textContent='restart…';networkEl.textContent='Przełączanie profilu. ESP32 uruchamia się ponownie…'}else alert(await r.text())}
 async function saveConfig(){let p=new URLSearchParams();for(let i=0;i<4;i++){p.set('n'+i,document.getElementById('n'+i).value);p.set('b'+i,document.getElementById('b'+i).value);p.set('f'+i,document.getElementById('f'+i).value)}let r=await fetch('/api/config',{method:'POST',body:p});if(r.ok){currentConfig=await r.json();controls(currentConfig);statusEl.textContent='zapisano';setTimeout(()=>statusEl.textContent='online',1200)}else alert(await r.text())}
 function clearView(){lines=[];logEl.textContent=''}function togglePause(){paused=!paused;pauseBtn.textContent=paused?'Wznów':'Pauza'}
 function channelLabel(ch){let c=currentConfig[ch-1],name=c&&c.name?c.name:`CH${ch}`;return `${name} [CH${ch}]`}
@@ -137,9 +147,14 @@ function updateRawStats(){let seconds=rawStarted?((Date.now()-rawStarted)/1000).
 async function startRawRecording(){rawRecorded=[];rawBytes=0;rawDropped=0;rawOverflowBaseline=rawInputOverflow;rawStarted=Date.now();rawRecording=true;rawRecordBtn.disabled=true;rawStopBtn.disabled=false;rawDownloadBtn.disabled=true;updateRawStats()}
 function stopRawRecording(){rawRecording=false;rawRecordBtn.disabled=false;rawStopBtn.disabled=true;rawDownloadBtn.disabled=rawRecorded.length===0;updateRawStats()}
 function downloadRawRecording(){if(!rawRecorded.length)return;let meta={type:'uart-edge-logger',version:2,started:new Date(rawStarted).toISOString(),tick_ns:250,encoding:'uint32-hex: bit31=level, bits0-30=duration_ticks',channels:currentConfig,dropped_records:rawDropped,dropped_edges:rawInputOverflow-rawOverflowBaseline};let text=JSON.stringify(meta)+'\n'+rawRecorded.map(e=>JSON.stringify({seq:e.seq,us:e.us,ch:e.ch,raw:e.raw})).join('\n')+'\n';let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:'application/x-ndjson'}));a.download=`uart-edges-${new Date(rawStarted).toISOString().replace(/[:.]/g,'-')}.jsonl`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)}
+function showTerminalState(s){terminalArmBtn.disabled=s.armed;terminalDisarmBtn.disabled=!s.armed;terminalSendBtn.disabled=!s.armed;terminalStatusEl.textContent=s.armed?`Terminal uzbrojony · pozostało ${Math.ceil(s.remainingMs/1000)} s · tylko bezpieczne funkcje FinSH`:`Terminal rozbrojony · ${s.ready?'CH1 ma 115200 8N1':'ustaw CH1 na 115200 8N1'}`}
+async function terminalState(){try{let r=await fetch('/api/terminal');showTerminalState(await r.json())}catch(e){terminalStatusEl.textContent='Nie można odczytać stanu terminala'}}
+async function armTerminal(){if(!confirm('Czy GPIO25 jest podłączony przez rezystor 1–4,7 kΩ do RX kosiarki, ze wspólną masą i bez VCC?'))return;let r=await fetch('/api/terminal/arm',{method:'POST',body:new URLSearchParams({confirm:'ARM DM2 READ ONLY'})});if(!r.ok){alert(await r.text());return}showTerminalState(await r.json())}
+async function disarmTerminal(){let r=await fetch('/api/terminal/disarm',{method:'POST'});showTerminalState(await r.json())}
+async function sendTerminal(){let command=terminalCommandEl.value,label=command||'Enter';if(!confirm(`Wysłać do DM2: ${label}?`))return;let r=await fetch('/api/terminal/send',{method:'POST',body:new URLSearchParams({command})});if(!r.ok){alert(await r.text());await terminalState();return}terminalStatusEl.textContent=`Wysłano: ${label}`;setTimeout(terminalState,700)}
 async function rawPoll(){try{let url=rawInitialized?'/api/raw?after='+rawAfter:'/api/raw?latest=1',r=await fetch(url,{cache:'no-store'}),d=await r.json();rawInputOverflow=d.inputOverflow||0;if(!rawInitialized){rawAfter=d.latest||0;rawInitialized=true}if(rawRecording&&d.events.length&&rawAfter&&d.events[0].seq>rawAfter+1)rawDropped+=d.events[0].seq-rawAfter-1;for(const e of d.events){rawAfter=Math.max(rawAfter,e.seq);if(rawRecording){rawRecorded.push(e);rawBytes+=Math.ceil(e.raw.length/2)+16}}if(rawBytes>16000000&&rawRecording)stopRawRecording();if(rawRecording)updateRawStats()}catch(e){}setTimeout(rawPoll,250)}
 async function poll(){try{let url=afterInitialized?'/api/data?after='+after:'/api/data?latest=1',r=await fetch(url,{cache:'no-store'}),d=await r.json();if(!afterInitialized){after=d.latest||0;afterInitialized=true}if(recording&&d.events.length&&after&&d.events[0].seq>after+1)dropped+=d.events[0].seq-after-1;for(const e of d.events){after=Math.max(after,e.seq);if(recording){recorded.push(e);recordedBytes+=e.hex?Math.ceil(e.hex.length/3):0}if(!paused)add(e)}if(recordedBytes>16000000&&recording)await stopRecording();if(!paused){logEl.innerHTML=lines.join('\n');logEl.scrollTop=logEl.scrollHeight}statusEl.textContent=`online${d.softOverflow?' · CH4 overflow: '+d.softOverflow:''}`;if(recording)updateRecordStats()}catch(e){statusEl.textContent='brak połączenia'}setTimeout(poll,150)}
-Promise.all([loadConfig(),loadNetwork()]).then(()=>{poll();rawPoll()});
+Promise.all([loadConfig(),loadNetwork(),terminalState()]).then(()=>{poll();rawPoll();setInterval(terminalState,2000)});
 </script></body></html>
 )HTML";
 
@@ -357,6 +372,83 @@ String configJson() {
   return result;
 }
 
+bool terminalReady() {
+  return configs[TERMINAL_CHANNEL].baud == 115200 &&
+         strcmp(configs[TERMINAL_CHANNEL].formatName, "8N1") == 0;
+}
+
+bool terminalIsArmed() {
+  if (terminalArmed && static_cast<int32_t>(millis() - terminalArmedUntil) >= 0) {
+    terminalArmed = false;
+  }
+  return terminalArmed;
+}
+
+String terminalJson() {
+  bool armed = terminalIsArmed();
+  uint32_t remaining = armed ? terminalArmedUntil - millis() : 0;
+  return "{\"armed\":" + String(armed ? "true" : "false") +
+         ",\"ready\":" + String(terminalReady() ? "true" : "false") +
+         ",\"remainingMs\":" + String(remaining) +
+         ",\"txPin\":" + String(TERMINAL_TX_PIN) + "}";
+}
+
+bool allowedTerminalCommand(const String &command) {
+  return command.isEmpty() || command == "help" || command == "help()" ||
+         command == "version" || command == "version()" ||
+         command == "list_device" || command == "list_device()" ||
+         command == "ps" || command == "ps()" ||
+         command == "list_thread()" || command == "list_timer()" ||
+         command == "list_msgqueue()" || command == "list_mailbox()" ||
+         command == "list_event()" || command == "list_mutex()" ||
+         command == "list_sem()" || command == "list_mempool()" ||
+         command == "list_mem()" || command == "list_fd()" ||
+         command == "free()" || command == "time()" ||
+         command == "ui_msg_test()";
+}
+
+void handleTerminalArm() {
+  if (!terminalReady()) {
+    server.send(409, "text/plain", "Najpierw ustaw CH1 na 115200 8N1");
+    return;
+  }
+  if (server.arg("confirm") != "ARM DM2 READ ONLY") {
+    server.send(403, "text/plain", "Brak potwierdzenia bezpiecznego polaczenia");
+    return;
+  }
+  terminalArmed = true;
+  terminalArmedUntil = millis() + TERMINAL_ARM_DURATION_MS;
+  server.send(200, "application/json", terminalJson());
+}
+
+void handleTerminalSend() {
+  if (!terminalIsArmed()) {
+    server.send(423, "text/plain", "Terminal jest rozbrojony");
+    return;
+  }
+  if (!terminalReady()) {
+    terminalArmed = false;
+    server.send(409, "text/plain", "CH1 nie ma konfiguracji 115200 8N1");
+    return;
+  }
+  String command = server.arg("command");
+  command.trim();
+  if (command.length() > TERMINAL_MAX_COMMAND_LENGTH || !allowedTerminalCommand(command)) {
+    server.send(403, "text/plain", "Komenda zablokowana w trybie read-only");
+    return;
+  }
+  for (size_t i = 0; i < command.length(); ++i) {
+    uart1.write(static_cast<uint8_t>(command[i]));
+    uart1.flush();
+    delay(TERMINAL_INTER_BYTE_DELAY_MS);
+  }
+  uart1.write('\r');
+  uart1.flush();
+  terminalArmedUntil = millis() + TERMINAL_ARM_DURATION_MS;
+  server.send(200, "application/json", "{\"sent\":true,\"command\":\"" +
+                                      jsonEscaped(command) + "\"}");
+}
+
 void handleRawData() {
   uint32_t after = server.hasArg("after") ? strtoul(server.arg("after").c_str(), nullptr, 10) : 0;
   bool latestOnly = server.hasArg("latest");
@@ -466,12 +558,44 @@ void handleConfigPost() {
   server.send(200, "application/json", configJson());
 }
 
+uint8_t activeWifiProfile() {
+  uint8_t active = preferences.getUChar("wifi_active", 0);
+  return active < 2 ? active : 0;
+}
+
+String wifiProfileSsid(uint8_t profile) {
+  if (profile == 1) return preferences.getString("wifi2_ssid", SECONDARY_WIFI_SSID);
+  return preferences.getString("wifi1_ssid", DEFAULT_WIFI_SSID);
+}
+
+String wifiProfilePassword(uint8_t profile) {
+  if (profile == 1) return preferences.getString("wifi2_pass", SECONDARY_WIFI_PASSWORD);
+  return preferences.getString("wifi1_pass", DEFAULT_WIFI_PASSWORD);
+}
+
+String wifiProfilesJson() {
+  uint8_t active = activeWifiProfile();
+  return "{\"active\":" + String(active) + ",\"profiles\":[{\"ssid\":\"" +
+         jsonEscaped(wifiProfileSsid(0)) + "\"},{\"ssid\":\"" +
+         jsonEscaped(wifiProfileSsid(1)) + "\"}]}";
+}
+
 void setupWebServer() {
   server.on("/", HTTP_GET, [] { server.send_P(200, "text/html; charset=utf-8", INDEX_HTML); });
   server.on("/api/config", HTTP_GET, [] { server.send(200, "application/json", configJson()); });
   server.on("/api/config", HTTP_POST, handleConfigPost);
   server.on("/api/data", HTTP_GET, handleData);
   server.on("/api/raw", HTTP_GET, handleRawData);
+  server.on("/api/terminal", HTTP_GET, [] {
+    server.sendHeader("Cache-Control", "no-store");
+    server.send(200, "application/json", terminalJson());
+  });
+  server.on("/api/terminal/arm", HTTP_POST, handleTerminalArm);
+  server.on("/api/terminal/disarm", HTTP_POST, [] {
+    terminalArmed = false;
+    server.send(200, "application/json", terminalJson());
+  });
+  server.on("/api/terminal/send", HTTP_POST, handleTerminalSend);
   server.on("/update", HTTP_GET, [] {
     if (!server.authenticate("admin", AP_PASSWORD)) return server.requestAuthentication();
     server.send_P(200, "text/html; charset=utf-8", UPDATE_HTML);
@@ -497,7 +621,7 @@ void setupWebServer() {
     }
   });
   server.on("/api/network", HTTP_GET, [] {
-    String ssid = preferences.getString("wifi_ssid", DEFAULT_WIFI_SSID);
+    String ssid = wifiProfileSsid(activeWifiProfile());
     String json = "{\"ssid\":\"" + ssid + "\",\"connected\":" + String(WiFi.status() == WL_CONNECTED ? "true" : "false") +
                   ",\"ip\":\"" + WiFi.localIP().toString() + "\",\"apIp\":\"" + WiFi.softAPIP().toString() +
                   "\",\"rssi\":" + String(WiFi.status() == WL_CONNECTED ? WiFi.RSSI() : 0) + ",\"host\":\"" + HOSTNAME + "\"}";
@@ -511,9 +635,24 @@ void setupWebServer() {
       server.send(400, "text/plain", "Nieprawidlowa nazwa sieci lub haslo");
       return;
     }
-    preferences.putString("wifi_ssid", ssid);
-    if (!password.isEmpty()) preferences.putString("wifi_pass", password);
+    uint8_t active = activeWifiProfile();
+    preferences.putString(active == 1 ? "wifi2_ssid" : "wifi1_ssid", ssid);
+    if (!password.isEmpty()) preferences.putString(active == 1 ? "wifi2_pass" : "wifi1_pass", password);
     server.send(200, "application/json", "{\"restart\":true}");
+    restartAt = millis() + 700;
+  });
+  server.on("/api/network/profiles", HTTP_GET, [] {
+    server.sendHeader("Cache-Control", "no-store");
+    server.send(200, "application/json", wifiProfilesJson());
+  });
+  server.on("/api/network/profiles", HTTP_POST, [] {
+    int active = server.arg("active").toInt();
+    if (active < 0 || active > 1 || server.arg("active") != String(active)) {
+      server.send(400, "text/plain", "Nieprawidlowy profil Wi-Fi");
+      return;
+    }
+    preferences.putUChar("wifi_active", static_cast<uint8_t>(active));
+    server.send(200, "application/json", "{\"restart\":true,\"active\":" + String(active) + "}");
     restartAt = millis() + 700;
   });
   server.onNotFound([] { server.send(404, "text/plain", "404"); });
@@ -521,8 +660,9 @@ void setupWebServer() {
 }
 
 void setupNetwork() {
-  String ssid = preferences.getString("wifi_ssid", DEFAULT_WIFI_SSID);
-  String password = preferences.getString("wifi_pass", DEFAULT_WIFI_PASSWORD);
+  uint8_t active = activeWifiProfile();
+  String ssid = wifiProfileSsid(active);
+  String password = wifiProfilePassword(active);
   WiFi.mode(WIFI_AP_STA);
   WiFi.setHostname(HOSTNAME);
   WiFi.softAP(AP_SSID, AP_PASSWORD);
