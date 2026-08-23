@@ -58,6 +58,26 @@ Adresy dotyczą wyłącznie przeanalizowanego obrazu `DM2-SW-VBW 3.7.4` i nie mo
 - komunikat wewnętrzny `0x0201` odpowiada zadawaniu prędkości (`CMD 02`);
 - ID 0 i 1 odpowiadają kołom, a ID 3 jest praktycznie potwierdzonym kontrolerem noża.
 
+Analiza statyczna obrazu o SHA-256
+`45823D14EC9BF15776AA9A50D859AD937CC9E39732E432403D55018DE4184C4A`
+potwierdziła również dokładne przypisanie UART-ów głównego MCU. Wszystkie pracują
+z parametrami 115200 8N1:
+
+- `uart1` / USART1: TX PA9, RX PA10; PA9 jest wyjściem konsoli i logów RT-Thread;
+- `uart2` / USART2: TX PA2, RX PA3; magistrala kontrolerów silników;
+- `uart3` / USART3: TX PB10, RX PB11; rola jeszcze niepotwierdzona;
+- `uart4` / UART4: TX PC10, RX PC11; rola jeszcze niepotwierdzona;
+- `uart5` / UART5: TX PC12, RX PD2; PD2 jest wejściem powłoki FinSH.
+
+Konsola serwisowa jest zatem rozdzielona pomiędzy dwa peryferia: logi wychodzą
+przez PA9 (`uart1`), a komendy wchodzą przez PD2 (`uart5`). Numery fizycznych nóżek
+obudowy trzeba ustalić z pełnego symbolu MCU i wariantu obudowy.
+
+Dokładna ramka prędkości silnika ma 11 bajtów. Polecenie `0x02` przenosi signed
+int16 big-endian w bajtach 7 i 9, z zerami w 8 i 10. Suma kontrolna w bajcie 6 to
+`(b2+b3+b4+b5+b7+b8+b9+b10) & 0x7F`. Pełny raport i lista niewiadomych znajdują
+się w `docs/firmware-analysis-3.7.4.md`.
+
 Najlepszym przyszłym punktem integracji RPi jest wybór źródła `v/omega` przed fabryczną kinematyką, a nie bezpośrednie nadawanie na UART2. Odbiornik UART powinien jedynie aktualizować stan polecenia, natomiast ruch nadal ma wykonywać fabryczna okresowa pętla RT-Thread.
 
 W trybie zewnętrznym brak poprawnego heartbeat przez maksymalnie 500 ms ma ustawiać `v=0`, `omega=0`, zatrzymywać robota i wymagać ponownego jawnego uzbrojenia. Nie wolno automatycznie wracać do fabrycznego koszenia. STOP, lift/tilt, bumper, przeciążenia, ładowanie i pozostałe zabezpieczenia fabryczne zawsze mają pierwszeństwo.
@@ -100,6 +120,21 @@ Najbliższy konkretny pomiar to pełny zapis cold boot UART-u głównego MCU prz
 - po testach terminal został rozbrojony.
 
 Pełny uporządkowany wynik inwentaryzacji wątków, timerów, urządzeń, IPC i pamięci znajduje się w `docs/finsh-diagnostics-2026-08-23.md`.
+
+## POC komunikatu RPI MODE
+
+Analiza UI potwierdziła, że eksport FinSH `ui_msg_test` wskazuje pusty stub pod
+`0x0804CCE8`. Renderer głównego statusu przy `0x08033094` korzysta ze wspólnej
+tabeli tekstów wielojęzycznych, a funkcja `0x08033144` zleca odrysowanie ekranu
+zdarzeniem UI 54. Dzięki temu pierwszy patch może bez sterowania silnikami użyć
+`ui_msg_test()` do pokazania napisu `RPI MODE`.
+
+Kod POC i generator obrazu znajdują się w
+`firmware-patches/rpi-mode-display-poc/`. Generator przyjmuje wyłącznie znany
+golden dump, tworzy osobny plik wyjściowy i niczego sam nie wgrywa. Rezerwuje
+32 bajty na końcu SRAM przez odpowiednie zmniejszenie sterty RT-Thread oraz używa
+niezapisanego Flash od `0x08060400`. Przed próbą na sprzęcie trzeba zweryfikować
+wyjściowy obraz i zachować działającą procedurę odtworzenia przez SWD.
 
 ## Pliki lokalne i sekrety
 

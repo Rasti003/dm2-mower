@@ -1,3 +1,4 @@
 .pio/
 tools/
+__pycache__/
 include/wifi_config.h
