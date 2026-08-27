@@ -66,8 +66,31 @@ płycie. Pakiet zawiera dane, ale procedura zapisu nie została jeszcze przetest
 
 ## Czego nadal brakuje do kopii całej płyty
 
-Winbond W25Q32 (4 MiB) jest pamięcią zewnętrzną i nie jest bezpośrednio mapowany
-w przestrzeni SWD GD32F30x. Do pełnego odtworzenia całej płyty należy wykonać
-jej potrójny odczyt osobnym programatorem SPI albo później przygotowaną,
-zweryfikowaną procedurą pośrednią. Ten brak nie blokuje odzyskania samego MCU,
-ale blokuje oznaczenie zestawu jako pełnego backupu wszystkich pamięci płyty.
+Brak zewnętrznej pamięci został uzupełniony z odczytów wykonanych programatorem.
+Pliki `LOCK1.bin`, `LOCK2.bin` i `LOCK3.bin` mają po 4 MiB i są identyczne bajt w
+bajt. Golden obraz W25Q32 ma SHA-256:
+
+`32DDFF97BBD4DABD9A04276BBBEB494B195E84127972F5A11867B4CE705C3220`
+
+Powstała pełna paczka:
+
+- identyfikator: `20260827-170000-full-board-recovery`;
+- komputer serwisowy:
+  `E:\Kosiarka\backups\20260827-170000-full-board-recovery.zip`;
+- Raspberry Pi:
+  `~/.local/share/mowbi/backups/20260827-170000-full-board-recovery.zip`;
+- SHA-256 archiwum:
+  `D9A725E80046C5A568FEC08C1F65B1C7B6C9EA0179EFA59FB86BD7FB2025CAFF`.
+
+Manifest zawiera 21 zweryfikowanych odczytów, ma
+`complete_controller_board_backup=true` i nie ma oczekujących regionów. Jest to
+komplet danych pamięci trwałych głównego MCU oraz W25Q32.
+
+Pliki `UNLOCK4.bin`, `UNLOCK5.bin` i `UNLOCK6.bin` również są zgodne między sobą,
+ale różnią się od zestawu LOCK. Użytkownik wskazał LOCK1–LOCK3 jako golden
+backup, dlatego wariant UNLOCK nie został dodany do paczki i musi pozostać
+oddzielnym materiałem porównawczym.
+
+Nadal nie została wykonana próba zapisu/odtworzenia. Przed pierwszym odtworzeniem
+trzeba potwierdzić pełne oznaczenie MCU i sprawdzić procedurę na zapasowym
+układzie lub bliźniaczej płycie.

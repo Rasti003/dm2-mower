@@ -28,8 +28,16 @@ SRAM; najbardziej prawdopodobna jest klasa GD32F303xE, ale pełny symbol obudowy
 pozostaje niepotwierdzony. Pakiet `20260827-164500-mcu-recovery` zawiera trzy
 zgodne kopie Flash, option bytes, fabrycznego bootloadera, podpisu elektronicznego,
 Product ID i stanu załadowanych opcji. Dane potrzebne do odtworzenia tego samego
-MCU są kompletne. Zewnętrzny W25Q32 4 MiB nadal wymaga osobnej metody odczytu,
-więc pełny backup całej płyty pozostaje niekompletny.
+MCU są kompletne.
+
+Golden backup zewnętrznej W25Q32 pochodzi z programatora: `LOCK1.bin`,
+`LOCK2.bin` i `LOCK3.bin` mają po 4 MiB, są identyczne bajt w bajt i mają SHA-256
+`32DDFF97BBD4DABD9A04276BBBEB494B195E84127972F5A11867B4CE705C3220`.
+Zestaw dołączono do nowej paczki `20260827-170000-full-board-recovery`, która
+zawiera komplet pamięci trwałych MCU i W25Q32. Paczka jest zweryfikowana w
+portalu i nie ma oczekujących regionów. Alternatywne pliki `UNLOCK4`–`UNLOCK6`
+są spójne między sobą, ale różnią się od golden backupu LOCK i celowo nie zostały
+do niego dołączone.
 
 Aktualnie działają:
 

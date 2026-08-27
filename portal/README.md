@@ -37,8 +37,14 @@ odczytania pełnego napisu z układu. Potwierdzone regiony backupu MCU to:
 
 Option bytes zostały odczytane trzy razy i są zgodne. Kod bezpieczeństwa `0xA5`
 oznacza brak ochrony odczytu; wszystkie pary bajt/dopełnienie są poprawne.
-Zewnętrzny Winbond W25Q32 (4 MiB) nadal pozostaje wymagany dla pełnego backupu
-całej płyty, ponieważ nie jest bezpośrednio mapowany w przestrzeni SWD MCU.
+
+Zewnętrzny Winbond W25Q32 został odczytany programatorem w trzech identycznych
+próbach `LOCK1`–`LOCK3`. Golden obraz ma SHA-256
+`32DDFF97BBD4DABD9A04276BBBEB494B195E84127972F5A11867B4CE705C3220`.
+Pełna paczka `20260827-170000-full-board-recovery` łączy zweryfikowany backup MCU
+z tym obrazem i jest oznaczona w portalu jako kompletny backup pamięci trwałych
+płyty. Zestaw `UNLOCK4`–`UNLOCK6` jest innym wariantem i nie należy go mieszać z
+golden backupem LOCK.
 
 RAM jest celowo pominięty w golden backupie: jego zawartość jest ulotna i nie
 służy do odtworzenia urządzenia.
