@@ -14,16 +14,22 @@ GPIO14/GPIO15 bez konsoli systemowej oraz podłączoną sondę CMSIS-DAP o UID
 `LU_2022_8888`. Repozytorium znajduje się na Pi w `~/dm2-mower`.
 
 W `portal/` powstała pierwsza wersja **MOWBI Command Deck**. Portal wykonuje
-potrójny, tylko-odczytowy zrzut pamięci przez pyOCD, liczy SHA-256,
+potrójny, tylko-odczytowy zrzut pamięci, liczy SHA-256,
 BLAKE2b-256 i CRC32, porównuje pliki bajt po bajcie, tworzy manifest oraz ZIP i
 przechowuje wszystko lokalnie poza Git. Operacje write/erase/reset/halt nie są
-dostępne. Profil pozostaje zablokowany do czasu przepisania pełnego oznaczenia
-MCU z tej konkretnej płyty.
+dostępne. Początkowy backend pyOCD nie współpracuje stabilnie z klonem sondy
+`c251:f001`; zweryfikowany odczyt wykorzystuje OpenOCD z wymuszonym backendem
+CMSIS-DAP HID przy 100 kHz. Automatyczny backend portalu wymaga jeszcze migracji
+z pyOCD na tę metodę.
 
-Wewnętrzny Flash 512 KiB jest pierwszym regionem backupu. Zewnętrzny W25Q32
-4 MiB i option bytes są jawnie oznaczone jako wymagane, ale oczekujące na osobną,
-zweryfikowaną metodę odczytu. Dopóki ich nie obejmiemy, portal nie może nazywać
-zestawu pełnym backupem wszystkich pamięci trwałych.
+27 sierpnia 2026 wykonano trzy identyczne odczyty zainstalowanego MCU. Identyfikacja
+SWD i właściwa mapa pamięci potwierdziły rodzinę GD32F30x, 512 KiB Flash i 64 KiB
+SRAM; najbardziej prawdopodobna jest klasa GD32F303xE, ale pełny symbol obudowy
+pozostaje niepotwierdzony. Pakiet `20260827-164500-mcu-recovery` zawiera trzy
+zgodne kopie Flash, option bytes, fabrycznego bootloadera, podpisu elektronicznego,
+Product ID i stanu załadowanych opcji. Dane potrzebne do odtworzenia tego samego
+MCU są kompletne. Zewnętrzny W25Q32 4 MiB nadal wymaga osobnej metody odczytu,
+więc pełny backup całej płyty pozostaje niekompletny.
 
 Aktualnie działają:
 

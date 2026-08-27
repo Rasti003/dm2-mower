@@ -7,7 +7,7 @@ osobny, rygorystyczny Safety Gate sterowania.
 
 ## Granica bezpieczeństwa wersji 0.1
 
-- backend dopuszcza tylko komendę pyOCD `savemem`;
+- kod wersji 0.1 dopuszcza tylko komendę pyOCD `savemem`;
 - połączenie odbywa się w trybie `attach` — portal nie żąda resetu ani haltu;
 - nie ma endpointu programowania, kasowania ani odtwarzania;
 - backup jest zablokowany do czasu wpisania oznaczenia MCU z konkretnej płyty;
@@ -17,17 +17,28 @@ osobny, rygorystyczny Safety Gate sterowania.
 - dumpy, UID-y, token portalu i manifesty urządzenia są przechowywane wyłącznie
   na Pi w `~/.local/share/mowbi/` i są ignorowane przez Git.
 
+Klon CMSIS-DAP `c251:f001` nie działa stabilnie z pyOCD. Pierwszy rzeczywisty
+backup wykonano bezpiecznie przez OpenOCD z `cmsis-dap backend hid`, w trybie
+attach i przy 100 kHz. Pakiet został ręcznie zarejestrowany w magazynie portalu.
+Przed uruchamianiem kolejnych backupów z przycisku backend aplikacji należy
+przenieść z pyOCD na zweryfikowaną metodę OpenOCD.
+
 ## Zakres backupu
 
-Pierwszy aktywny region to wewnętrzny Flash MCU: `0x08000000`, 512 KiB. Ten
-zakres wynika z dotychczasowego obrazu, ale przed pierwszym odczytem profil wymaga
-potwierdzenia oznaczenia procesora z badanej płyty.
+Potwierdzony MCU należy do rodziny GD32F30x: 512 KiB Flash i 64 KiB SRAM.
+Najbardziej prawdopodobna jest klasa GD32F303xE; dokładny wariant obudowy wymaga
+odczytania pełnego napisu z układu. Potwierdzone regiony backupu MCU to:
 
-Zewnętrzny Winbond W25Q32 (4 MiB) i option bytes są pokazane jako wymagane, lecz
-zablokowane. SWD nie gwarantuje bezpośredniego dostępu do pamięci SPI, a mapa
-option bytes zależy od dokładnego modelu MCU. Portal nie oznaczy zestawu jako
-pełnego backupu wszystkich pamięci trwałych, dopóki te regiony nie dostaną
-zweryfikowanych metod odczytu.
+- wewnętrzny Flash: `0x08000000`, 512 KiB;
+- option bytes: `0x1FFFF800`, 16 B;
+- fabryczny bootloader: `0x1FFFF000`, 2 KiB (referencyjny, nieprogramowalny);
+- gęstość pamięci i UID: od `0x1FFFF7E0` (fabryczne, nieklonowalne);
+- Product ID: `0x40022100` (fabryczny, tylko do identyfikacji).
+
+Option bytes zostały odczytane trzy razy i są zgodne. Kod bezpieczeństwa `0xA5`
+oznacza brak ochrony odczytu; wszystkie pary bajt/dopełnienie są poprawne.
+Zewnętrzny Winbond W25Q32 (4 MiB) nadal pozostaje wymagany dla pełnego backupu
+całej płyty, ponieważ nie jest bezpośrednio mapowany w przestrzeni SWD MCU.
 
 RAM jest celowo pominięty w golden backupie: jego zawartość jest ulotna i nie
 służy do odtworzenia urządzenia.
