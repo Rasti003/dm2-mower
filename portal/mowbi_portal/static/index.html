@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#070b12">
   <title>MOWBI Command Deck</title>
-  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/styles.css?v=0.2.0">
 </head>
 <body>
   <div class="stars" aria-hidden="true"></div>
@@ -44,6 +44,7 @@
     <aside class="sidebar" aria-label="Nawigacja">
       <a href="#overview" class="nav-item active"><span>⌂</span><b>Pokład</b></a>
       <a href="#backup" class="nav-item"><span>⬡</span><b>Backupy</b></a>
+      <a href="#console" class="nav-item"><span>⌁</span><b>Konsola</b></a>
       <a href="#archive" class="nav-item"><span>▤</span><b>Archiwum</b></a>
       <a href="#future" class="nav-item"><span>✦</span><b>Misje</b><em>WKRÓTCE</em></a>
     </aside>
@@ -139,6 +140,33 @@
         </aside>
       </section>
 
+      <section class="panel console-panel" id="console">
+        <div class="section-title console-title">
+          <div><p class="eyebrow">UART SERVICE LINK</p><h3>Konsola głównego MCU</h3></div>
+          <span class="uart-state offline" id="uartState"><i></i> ŁĄCZENIE</span>
+        </div>
+        <div class="console-meta">
+          <span><small>INTERFEJS</small><b id="uartPort">/dev/serial0</b></span>
+          <span><small>PARAMETRY</small><b>115200 · 8N1</b></span>
+          <span><small>TRYB TX</small><b id="uartArmState">ROZBROJONY</b></span>
+          <button class="button ghost" id="uartClearButton">Wyczyść ekran</button>
+        </div>
+        <div class="terminal-window" id="uartOutput" role="log" aria-live="polite"><span class="terminal-placeholder">Oczekiwanie na dane z płyty…</span></div>
+        <div class="console-controls">
+          <label>Bezpieczna komenda FinSH
+            <select id="uartCommand" disabled>
+              <option value="">Enter — pokaż prompt</option>
+            </select>
+          </label>
+          <button class="button arm" id="uartArmButton" disabled>Uzbrój TX na 2 min</button>
+          <button class="button primary" id="uartSendButton" disabled>Wyślij</button>
+          <button class="button ghost hidden" id="uartDisarmButton">Rozbrój</button>
+        </div>
+        <div class="notice console-safety">
+          <span>i</span><div><b>Monitorowanie jest ciągłe i pasywne</b><p>Wysyłanie wymaga osobnego uzbrojenia. Portal akceptuje tylko zatwierdzone komendy diagnostyczne i nigdy nie udostępnia dowolnego tekstu.</p></div>
+        </div>
+      </section>
+
       <section class="panel archive-panel" id="archive">
         <div class="section-title">
           <div><p class="eyebrow">LOCAL VAULT</p><h3>Archiwum urządzenia</h3></div>
@@ -152,7 +180,7 @@
       <section id="future" class="future-section">
         <div class="section-title"><div><p class="eyebrow">ROADMAP</p><h3>Kolejne moduły pokładu</h3></div></div>
         <div class="future-grid">
-          <article class="panel future-card"><span>02</span><b>Telemetria UART</b><p>Logi, ramki i wykresy czasu rzeczywistego.</p><em>PLANOWANE</em></article>
+          <article class="panel future-card"><span>02</span><b>Telemetria UART</b><p>Konsola serwisowa działa; kolejne będą dekodery ramek i wykresy.</p><em>W TOKU</em></article>
           <article class="panel future-card"><span>03</span><b>Planowanie misji</b><p>Strefy, trasy, harmonogramy i stan wykonania.</p><em>PLANOWANE</em></article>
           <article class="panel future-card locked"><span>04</span><b>Sterowanie ruchem</b><p>Osobny Safety Gate, heartbeat i fizyczny STOP.</p><em>ZABLOKOWANE</em></article>
         </div>
@@ -175,6 +203,6 @@
   </dialog>
 
   <div class="toast" id="toast" role="status"></div>
-  <script src="/app.js" defer></script>
+  <script src="/app.js?v=0.2.0" defer></script>
 </body>
 </html>

@@ -72,6 +72,7 @@ class PortalSettings:
     access_token: str
     profile: TargetProfile
     config_path: Path
+    uart_port: Path
 
 
 def _default_config_path() -> Path:
@@ -84,6 +85,10 @@ def _default_data_dir() -> Path:
 
 def _default_pyocd_path() -> Path:
     return Path(os.environ.get("MOWBI_PYOCD", "~/.venvs/mowbi-tools/bin/pyocd")).expanduser()
+
+
+def _default_uart_port() -> Path:
+    return Path(os.environ.get("MOWBI_UART_PORT", "/dev/serial0")).expanduser()
 
 
 def _region_from_json(item: dict[str, Any]) -> MemoryRegion:
@@ -115,6 +120,7 @@ def load_settings() -> PortalSettings:
         access_token=access_token,
         profile=profile,
         config_path=config_path,
+        uart_port=_default_uart_port(),
     )
 
 

@@ -22,6 +22,14 @@ dostępne. Początkowy backend pyOCD nie współpracuje stabilnie z klonem sondy
 CMSIS-DAP HID przy 100 kHz. Automatyczny backend portalu wymaga jeszcze migracji
 z pyOCD na tę metodę.
 
+Wersja portalu 0.2 ma działającą konsolę głównego MCU przez `/dev/serial0`
+Raspberry Pi (GPIO14 TX, GPIO15 RX, 115200 8N1). Odbiornik stale buforuje logi,
+natomiast TX jest domyślnie rozbrojony, wymaga potwierdzenia i wyłącza się po
+120 sekundach. Backend przyjmuje wyłącznie znane komendy diagnostyczne FinSH,
+wysyła je znak po znaku z odstępem 3 ms i kończy pojedynczym CR. Próba sprzętowa
+2026-08-27 potwierdziła prompt `finsh >` oraz poprawną odpowiedź na `version()`:
+RT-Thread 4.0.0, build Dec 23 2021. Po teście TX rozbrojono.
+
 27 sierpnia 2026 wykonano trzy identyczne odczyty zainstalowanego MCU. Identyfikacja
 SWD i właściwa mapa pamięci potwierdziły rodzinę GD32F30x, 512 KiB Flash i 64 KiB
 SRAM; najbardziej prawdopodobna jest klasa GD32F303xE, ale pełny symbol obudowy

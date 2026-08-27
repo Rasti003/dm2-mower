@@ -7,6 +7,7 @@ Wants=network-online.target
 Type=simple
 WorkingDirectory=%h/dm2-mower/portal
 EnvironmentFile=%h/.config/mowbi/portal.env
+Environment=MOWBI_UART_PORT=/dev/serial0
 ExecStart=%h/.venvs/mowbi-portal/bin/uvicorn mowbi_portal.app:app --host 0.0.0.0 --port 8080
 Restart=on-failure
 RestartSec=3

@@ -5,7 +5,12 @@ zweryfikowane backupy pamięci głównego MCU przez CMSIS-DAP/SWD. Interfejs jes
 responsywny i przygotowany pod przyszłą telemetrię UART, planowanie misji oraz
 osobny, rygorystyczny Safety Gate sterowania.
 
-## Granica bezpieczeństwa wersji 0.1
+Portal zawiera również konsolę głównego MCU przez Raspberry Pi `/dev/serial0`
+(GPIO14 TX, GPIO15 RX, 115200 8N1). Odbiór logów jest ciągły. Nadawanie pozostaje
+domyślnie rozbrojone, wygasa po dwóch minutach i akceptuje wyłącznie ustaloną
+listę komend diagnostycznych FinSH. Znaki są wysyłane co 3 ms i zakończone CR.
+
+## Granica bezpieczeństwa wersji 0.2
 
 - kod wersji 0.1 dopuszcza tylko komendę pyOCD `savemem`;
 - połączenie odbywa się w trybie `attach` — portal nie żąda resetu ani haltu;
@@ -16,6 +21,8 @@ osobny, rygorystyczny Safety Gate sterowania.
 - niezgodny zestaw zostaje oznaczony jako błąd i nie otrzymuje pliku consensus;
 - dumpy, UID-y, token portalu i manifesty urządzenia są przechowywane wyłącznie
   na Pi w `~/.local/share/mowbi/` i są ignorowane przez Git.
+- konsola UART po starcie jest rozbrojona, uzbrojenie wygasa po 120 sekundach,
+  a backend odrzuca wszystko poza zatwierdzonymi komendami diagnostycznymi.
 
 Klon CMSIS-DAP `c251:f001` nie działa stabilnie z pyOCD. Pierwszy rzeczywisty
 backup wykonano bezpiecznie przez OpenOCD z `cmsis-dap backend hid`, w trybie

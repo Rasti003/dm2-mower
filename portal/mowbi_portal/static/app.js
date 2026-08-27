@@ -1,4 +1,4 @@
-const state = { token: "", status: null, backups: [], activeJob: null, pollTimer: null };
+const state = { token: "", status: null, backups: [], activeJob: null, pollTimer: null, uartSequence: 0, uartTimer: null, uartArmed: false };
 const $ = (selector) => document.querySelector(selector);
 
 function formatBytes(value) {
@@ -40,6 +40,8 @@ function logout() {
   sessionStorage.removeItem("mowbiToken");
   localStorage.removeItem("mowbiToken");
   state.token = "";
+  window.clearInterval(state.uartTimer);
+  state.uartTimer = null;
   $("#appShell").classList.add("hidden");
   $("#loginScreen").classList.remove("hidden");
 }
@@ -55,6 +57,7 @@ async function login(token, remember = false) {
   $("#loginScreen").classList.add("hidden");
   $("#appShell").classList.remove("hidden");
   await refreshAll();
+  startUartPolling();
 }
 
 function renderStatus(status) {
@@ -196,6 +199,91 @@ async function downloadBackup(backupId) {
   URL.revokeObjectURL(url);
 }
 
+function renderUartStatus(status) {
+  const stateNode = $("#uartState");
+  stateNode.classList.toggle("offline", !status.connected);
+  stateNode.innerHTML = `<i></i> ${status.connected ? "UART ONLINE" : "UART OFFLINE"}`;
+  stateNode.title = status.detail;
+  $("#uartPort").textContent = status.port;
+  state.uartArmed = status.armed;
+  $("#uartArmState").textContent = status.armed ? `UZBROJONY · ${Math.ceil(status.remaining_ms / 1000)} s` : "ROZBROJONY";
+  $("#uartArmButton").disabled = !status.connected || status.armed;
+  $("#uartArmButton").classList.toggle("hidden", status.armed);
+  $("#uartDisarmButton").classList.toggle("hidden", !status.armed);
+  $("#uartSendButton").disabled = !status.connected || !status.armed;
+  $("#uartCommand").disabled = !status.connected;
+  const select = $("#uartCommand");
+  if (select.options.length === 1 && status.allowed_commands?.length) {
+    status.allowed_commands.filter((command) => command).forEach((command) => {
+      const option = document.createElement("option");
+      option.value = command;
+      option.textContent = command;
+      select.appendChild(option);
+    });
+  }
+}
+
+function appendUartRecords(records) {
+  if (!records.length) return;
+  const output = $("#uartOutput");
+  const nearBottom = output.scrollHeight - output.scrollTop - output.clientHeight < 60;
+  const placeholder = output.querySelector(".terminal-placeholder");
+  if (placeholder) placeholder.remove();
+  for (const record of records) {
+    output.append(document.createTextNode(record.text));
+    state.uartSequence = Math.max(state.uartSequence, record.seq);
+  }
+  if (nearBottom) output.scrollTop = output.scrollHeight;
+}
+
+async function pollUart() {
+  if (!state.token) return;
+  try {
+    const response = await api(`/api/uart?after=${state.uartSequence}`);
+    const payload = await response.json();
+    renderUartStatus(payload.status);
+    appendUartRecords(payload.records);
+  } catch (error) {
+    $("#uartState").classList.add("offline");
+    $("#uartState").innerHTML = "<i></i> BRAK ŁĄCZNOŚCI";
+  }
+}
+
+function startUartPolling() {
+  window.clearInterval(state.uartTimer);
+  pollUart();
+  state.uartTimer = window.setInterval(pollUart, 700);
+}
+
+async function armUart() {
+  if (!window.confirm("Potwierdź: GPIO14 jest połączony z RX płyty, GPIO15 z TX płyty, masa jest wspólna, poziom to 3,3 V i nie podłączono VCC.")) return;
+  try {
+    const response = await api("/api/uart/arm", { method: "POST", body: JSON.stringify({ confirmation: "ARM DM2 READ ONLY" }) });
+    renderUartStatus(await response.json());
+    toast("Wysyłanie diagnostyczne uzbrojone na 2 minuty");
+  } catch (error) { toast(error.message); }
+}
+
+async function disarmUart() {
+  try {
+    const response = await api("/api/uart/disarm", { method: "POST" });
+    renderUartStatus(await response.json());
+    toast("Wysyłanie UART rozbrojone");
+  } catch (error) { toast(error.message); }
+}
+
+async function sendUart() {
+  const command = $("#uartCommand").value;
+  if (!window.confirm(`Wysłać do głównego MCU: ${command || "Enter"}?`)) return;
+  try {
+    const response = await api("/api/uart/send", { method: "POST", body: JSON.stringify({ command }) });
+    const result = await response.json();
+    renderUartStatus(result.status);
+    toast(`Wysłano: ${result.command}`);
+    window.setTimeout(pollUart, 250);
+  } catch (error) { toast(error.message); }
+}
+
 async function confirmProfile(event) {
   event.preventDefault();
   if (!$("#profileConfirm").checked) {
@@ -241,6 +329,10 @@ $("#archiveList").addEventListener("click", async (event) => {
     if (download) await downloadBackup(download.dataset.download);
   } catch (error) { toast(error.message); }
 });
+$("#uartArmButton").addEventListener("click", armUart);
+$("#uartDisarmButton").addEventListener("click", disarmUart);
+$("#uartSendButton").addEventListener("click", sendUart);
+$("#uartClearButton").addEventListener("click", () => { $("#uartOutput").textContent = ""; });
 
 window.setInterval(() => { $("#clock").textContent = new Date().toLocaleTimeString("pl-PL"); }, 1000);
 const existingToken = sessionStorage.getItem("mowbiToken") || localStorage.getItem("mowbiToken");

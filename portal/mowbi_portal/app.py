@@ -15,6 +15,7 @@ from . import __version__
 from .backup import BackupCoordinator, BackupStore, CONFIRMATION_PHRASE, PyOcdMemoryReader
 from .config import PortalSettings, load_settings, public_profile, save_profile
 from .probe import ProbeDetector
+from .uart import ARM_CONFIRMATION, UartConsole
 
 
 class LoginRequest(BaseModel):
@@ -33,11 +34,20 @@ class ProfileConfirmation(BaseModel):
     confirmation: str
 
 
+class UartArmRequest(BaseModel):
+    confirmation: str
+
+
+class UartSendRequest(BaseModel):
+    command: str = Field(default="", max_length=32)
+
+
 class Runtime:
     def __init__(self, settings: PortalSettings) -> None:
         self.settings = settings
         self.store = BackupStore(settings.data_dir)
         self.lock = Lock()
+        self.uart = UartConsole(settings.uart_port)
         self._build_hardware_services()
 
     def _build_hardware_services(self) -> None:
@@ -125,7 +135,10 @@ def portal_status() -> dict[str, object]:
             "erase": False,
             "restore": False,
             "missions": False,
+            "uart_monitor": True,
+            "uart_safe_commands": True,
         },
+        "uart": runtime.uart.status(),
     }
 
 
@@ -179,6 +192,38 @@ def download_backup(backup_id: str) -> FileResponse:
     if not path.exists():
         raise HTTPException(status_code=404, detail="Archiwum nie jest dostępne")
     return FileResponse(path, filename=path.name, media_type="application/zip")
+
+
+@app.get("/api/uart", dependencies=[Depends(require_auth)])
+def uart(after: int = 0) -> dict[str, object]:
+    if after < 0:
+        raise HTTPException(status_code=400, detail="Numer sekwencji nie może być ujemny")
+    return {"status": runtime.uart.status(), "records": runtime.uart.records_after(after)}
+
+
+@app.post("/api/uart/arm", dependencies=[Depends(require_auth)])
+def arm_uart(payload: UartArmRequest) -> dict[str, object]:
+    try:
+        return runtime.uart.arm(payload.confirmation)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@app.post("/api/uart/disarm", dependencies=[Depends(require_auth)])
+def disarm_uart() -> dict[str, object]:
+    return runtime.uart.disarm()
+
+
+@app.post("/api/uart/send", dependencies=[Depends(require_auth)])
+def send_uart(payload: UartSendRequest) -> dict[str, object]:
+    try:
+        return runtime.uart.send(payload.command)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=423, detail=str(exc)) from exc
 
 
 app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
