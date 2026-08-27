@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#070b12">
+  <title>MOWBI Command Deck</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="stars" aria-hidden="true"></div>
+
+  <section class="login-screen" id="loginScreen">
+    <div class="login-card panel">
+      <div class="brand-mark large" aria-hidden="true"><span></span></div>
+      <p class="eyebrow">OPEN DM2 // SECURE UPLINK</p>
+      <h1>MOWBI<br><span>Command Deck</span></h1>
+      <p class="muted">Lokalne centrum dowodzenia, archiwizacji i przyszłych misji.</p>
+      <form id="loginForm">
+        <label for="accessToken">Klucz dostępu</label>
+        <div class="input-row">
+          <input id="accessToken" type="password" autocomplete="current-password" required placeholder="Wpisz klucz portalu">
+          <button class="button primary" type="submit">Połącz</button>
+        </div>
+        <label class="check-row compact"><input id="rememberToken" type="checkbox"> Zapamiętaj na tym urządzeniu</label>
+        <p class="form-error" id="loginError"></p>
+      </form>
+    </div>
+  </section>
+
+  <div class="app hidden" id="appShell">
+    <header class="topbar">
+      <a class="brand" href="#overview" aria-label="MOWBI Command Deck">
+        <div class="brand-mark" aria-hidden="true"><span></span></div>
+        <div><strong>MOWBI</strong><small>COMMAND DECK</small></div>
+      </a>
+      <div class="top-status">
+        <span class="status-pill" id="safeMode"><i></i> READ-ONLY</span>
+        <span class="clock" id="clock">--:--:--</span>
+        <button class="icon-button" id="logoutButton" title="Rozłącz">↗</button>
+      </div>
+    </header>
+
+    <aside class="sidebar" aria-label="Nawigacja">
+      <a href="#overview" class="nav-item active"><span>⌂</span><b>Pokład</b></a>
+      <a href="#backup" class="nav-item"><span>⬡</span><b>Backupy</b></a>
+      <a href="#archive" class="nav-item"><span>▤</span><b>Archiwum</b></a>
+      <a href="#future" class="nav-item"><span>✦</span><b>Misje</b><em>WKRÓTCE</em></a>
+    </aside>
+
+    <main>
+      <section class="page-heading" id="overview">
+        <div>
+          <p class="eyebrow">SYSTEM OVERVIEW</p>
+          <h2>Centrum operacyjne <span>MOWBI</span></h2>
+          <p class="muted">Stan interfejsów, bezpieczeństwa i kopii urządzenia.</p>
+        </div>
+        <button class="button ghost" id="refreshButton">↻ Odśwież</button>
+      </section>
+
+      <section class="status-grid">
+        <article class="status-card panel">
+          <div class="card-icon cyan">⌁</div>
+          <div><small>SONDA SWD</small><strong id="probeLabel">Sprawdzanie…</strong><p id="probeDetail">—</p></div>
+          <span class="signal" id="probeSignal"></span>
+        </article>
+        <article class="status-card panel">
+          <div class="card-icon amber">◇</div>
+          <div><small>PROFIL TARGETU</small><strong id="profileLabel">—</strong><p id="profileDetail">—</p></div>
+          <button class="mini-button" id="profileButton">Ustaw</button>
+        </article>
+        <article class="status-card panel">
+          <div class="card-icon green">✓</div>
+          <div><small>ARCHIWUM</small><strong id="backupCount">0 backupów</strong><p id="storageDetail">—</p></div>
+        </article>
+        <article class="status-card panel">
+          <div class="card-icon purple">◈</div>
+          <div><small>SAFETY CORE</small><strong>Tylko odczyt</strong><p>Zapis i kasowanie niedostępne</p></div>
+          <span class="lock">●</span>
+        </article>
+      </section>
+
+      <section class="command-layout" id="backup">
+        <article class="panel backup-panel">
+          <div class="section-title">
+            <div><p class="eyebrow">ARCHIVE PROTOCOL 01</p><h3>Golden backup procesora</h3></div>
+            <span class="mode-badge">3× READ + CONSENSUS</span>
+          </div>
+
+          <div class="sequence" aria-label="Sekwencja backupu">
+            <div class="sequence-step active"><span>01</span><b>Preflight</b><small>Sonda i profil</small></div>
+            <i></i>
+            <div class="sequence-step"><span>02</span><b>Potrójny odczyt</b><small>Flash MCU</small></div>
+            <i></i>
+            <div class="sequence-step"><span>03</span><b>Consensus</b><small>Porównanie bitowe</small></div>
+            <i></i>
+            <div class="sequence-step"><span>04</span><b>Seal</b><small>Manifest + ZIP</small></div>
+          </div>
+
+          <div class="preflight-grid">
+            <div class="preflight-item"><span id="checkProbe">○</span><div><b>CMSIS-DAP</b><small id="checkProbeText">Oczekiwanie</small></div></div>
+            <div class="preflight-item"><span id="checkProfile">○</span><div><b>Profil pamięci</b><small id="checkProfileText">Oczekiwanie</small></div></div>
+            <div class="preflight-item"><span class="ok">✓</span><div><b>Polityka operacji</b><small>Brak zapisu / erase / reset</small></div></div>
+            <div class="preflight-item"><span id="checkStorage">○</span><div><b>Magazyn lokalny</b><small id="checkStorageText">Sprawdzanie</small></div></div>
+          </div>
+
+          <div class="notice warning" id="profileWarning">
+            <span>!</span><div><b>Profil MCU wymaga potwierdzenia</b><p>Przepisz pełne oznaczenie z obudowy procesora. Do tego czasu odczyt jest zablokowany.</p></div>
+          </div>
+
+          <form class="backup-form" id="backupForm">
+            <div class="form-grid">
+              <label>Nazwa urządzenia<input id="deviceName" maxlength="80" value="MOWBI-WAN / DM2-MB-VB1.2" required></label>
+              <label>Notatka<input id="backupNote" maxlength="500" placeholder="Np. stan fabryczny przed modyfikacją"></label>
+            </div>
+            <label class="check-row"><input id="readOnlyConfirm" type="checkbox"> Potwierdzam: robot jest unieruchomiony, a operacja ma być wyłącznie odczytowa.</label>
+            <div class="action-row">
+              <div><small>Zakres bieżącego etapu</small><b>Flash MCU · 0x08000000 · 512 KiB</b></div>
+              <button type="submit" class="button primary large" id="backupButton" disabled>Rozpocznij backup</button>
+            </div>
+            <p class="form-error" id="backupError"></p>
+          </form>
+
+          <div class="job-progress hidden" id="jobProgress">
+            <div class="progress-head"><div><small id="jobPhase">PREFLIGHT</small><b id="jobMessage">Przygotowanie…</b></div><strong id="jobPercent">0%</strong></div>
+            <div class="progress-track"><i id="jobBar"></i></div>
+            <p>Nie odłączaj sondy ani zasilania płyty podczas odczytu.</p>
+          </div>
+        </article>
+
+        <aside class="panel memory-map">
+          <div class="section-title"><div><p class="eyebrow">PERSISTENT MEMORY</p><h3>Mapa backupu</h3></div></div>
+          <div class="memory-stack">
+            <div class="memory-block active"><span>MCU</span><div><b>Internal Flash</b><small>512 KiB · SWD</small></div><em>GOTOWE</em></div>
+            <div class="memory-block pending"><span>SPI</span><div><b>Winbond W25Q32</b><small>4 MiB · osobny odczyt</small></div><em>ETAP 2</em></div>
+            <div class="memory-block neutral"><span>OPT</span><div><b>Option bytes</b><small>Po identyfikacji MCU</small></div><em>BLOKADA</em></div>
+          </div>
+          <div class="scope-note"><b>Co oznacza „pełny”?</b><p>Backup awaryjny jest pełny dopiero po zgodnym odczycie wszystkich pamięci trwałych. RAM nie jest golden backupem.</p></div>
+        </aside>
+      </section>
+
+      <section class="panel archive-panel" id="archive">
+        <div class="section-title">
+          <div><p class="eyebrow">LOCAL VAULT</p><h3>Archiwum urządzenia</h3></div>
+          <span class="vault-path">LOCAL ONLY · NOT IN GIT</span>
+        </div>
+        <div class="archive-list" id="archiveList">
+          <div class="empty-state"><span>⬡</span><b>Brak zapisanych backupów</b><p>Pierwszy zgodny zestaw pojawi się tutaj.</p></div>
+        </div>
+      </section>
+
+      <section id="future" class="future-section">
+        <div class="section-title"><div><p class="eyebrow">ROADMAP</p><h3>Kolejne moduły pokładu</h3></div></div>
+        <div class="future-grid">
+          <article class="panel future-card"><span>02</span><b>Telemetria UART</b><p>Logi, ramki i wykresy czasu rzeczywistego.</p><em>PLANOWANE</em></article>
+          <article class="panel future-card"><span>03</span><b>Planowanie misji</b><p>Strefy, trasy, harmonogramy i stan wykonania.</p><em>PLANOWANE</em></article>
+          <article class="panel future-card locked"><span>04</span><b>Sterowanie ruchem</b><p>Osobny Safety Gate, heartbeat i fizyczny STOP.</p><em>ZABLOKOWANE</em></article>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="profileDialog">
+    <form method="dialog" class="dialog-card" id="profileForm">
+      <button class="dialog-close" value="cancel" aria-label="Zamknij">×</button>
+      <p class="eyebrow">HARDWARE IDENTITY</p>
+      <h3>Potwierdź profil MCU</h3>
+      <p class="muted">Przepisz pełne oznaczenie z obudowy głównego procesora. Nie zgaduj modelu na podstawie podobnej płyty.</p>
+      <label>Pełne oznaczenie MCU<input id="chipMarking" required maxlength="80" placeholder="Np. GD32…"></label>
+      <label>Potwierdzony rozmiar Flash<select id="flashLength"><option value="524288">512 KiB</option></select></label>
+      <label class="check-row"><input id="profileConfirm" type="checkbox"> Oznaczenie odczytałem z tej konkretnej płyty.</label>
+      <p class="form-error" id="profileError"></p>
+      <button class="button primary full" type="submit">Zapisz i odblokuj odczyt</button>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status"></div>
+  <script src="/app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+[Unit]
+Description=MOWBI Command Deck portal
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/dm2-mower/portal
+EnvironmentFile=%h/.config/mowbi/portal.env
+ExecStart=%h/.venvs/mowbi-portal/bin/uvicorn mowbi_portal.app:app --host 0.0.0.0 --port 8080
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/.local/share/mowbi %h/.config/mowbi %h/.cache/pyocd
+
+[Install]
+WantedBy=default.target

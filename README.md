@@ -2,6 +2,11 @@
 
 Logger czterech kanałów UART TTL 3,3 V dla ESP32-WROOM-32D / ESP32 DevKit. Trzy kanały korzystają ze sprzętowych UART-ów, a czwarty z SoftwareSerial. Rejestrowanie jest pasywne; opcjonalny, silnie ograniczony terminal nadaje wyłącznie na konsolę DM2 po jawnym uzbrojeniu.
 
+Repozytorium zawiera także `portal/`: rozwijany panel Raspberry Pi **MOWBI
+Command Deck**. Jego pierwszy moduł wykonuje wielokrotne, weryfikowane backupy
+MCU przez CMSIS-DAP/SWD i przechowuje je lokalnie poza Git. Szczegóły znajdują
+się w [`portal/README.md`](portal/README.md).
+
 Repozytorium zawiera również `simulator-c3/` — firmware testowego ESP32-C3 z ekranem OLED, który wysyła ramki ASCII i binarne w konfiguracji 9600 8N1.
 
 ## Połączenia

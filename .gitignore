@@ -2,3 +2,9 @@
 tools/
 __pycache__/
 include/wifi_config.h
+portal/.venv/
+portal/.pytest_cache/
+portal/data/
+portal/config/portal.json
+portal/config/portal.env
+*.pyc

@@ -1,12 +1,29 @@
 # Kontekst projektu dm2-mower
 
-## Stan na 2026-08-23
+## Stan na 2026-08-27
 
 Firmware loggera jest skompilowany i wgrany na klasyczny ESP32-WROOM-32D. Urządzenie łączy się z Wi-Fi, udostępnia panel pod `http://uart-logger.local/` oraz obsługuje aktualizację OTA.
 
 Wersja 0.3 z ograniczonym terminalem DM2 została skompilowana i wgrana przez OTA 2026-08-23. Po restarcie endpoint terminala zgłosił stan rozbrojony, poprawną konfigurację CH1 115200 8N1 i TX na GPIO25.
 
 Repozytorium jest częścią szerszego projektu **OpenDM2**, którego docelowym celem jest zachowanie fabrycznego głównego MCU, zabezpieczeń, ładowania i sterowników silników oraz dodanie Raspberry Pi jako komputera nawigacyjnego komunikującego się z głównym MCU przez UART.
+
+Raspberry Pi Zero 2 W `mowbi-wan` działa jako stały interfejs deweloperski.
+Jest dostępny przez SSH jako alias `mowbi`, ma aktywny `/dev/serial0` na
+GPIO14/GPIO15 bez konsoli systemowej oraz podłączoną sondę CMSIS-DAP o UID
+`LU_2022_8888`. Repozytorium znajduje się na Pi w `~/dm2-mower`.
+
+W `portal/` powstała pierwsza wersja **MOWBI Command Deck**. Portal wykonuje
+potrójny, tylko-odczytowy zrzut pamięci przez pyOCD, liczy SHA-256,
+BLAKE2b-256 i CRC32, porównuje pliki bajt po bajcie, tworzy manifest oraz ZIP i
+przechowuje wszystko lokalnie poza Git. Operacje write/erase/reset/halt nie są
+dostępne. Profil pozostaje zablokowany do czasu przepisania pełnego oznaczenia
+MCU z tej konkretnej płyty.
+
+Wewnętrzny Flash 512 KiB jest pierwszym regionem backupu. Zewnętrzny W25Q32
+4 MiB i option bytes są jawnie oznaczone jako wymagane, ale oczekujące na osobną,
+zweryfikowaną metodę odczytu. Dopóki ich nie obejmiemy, portal nie może nazywać
+zestawu pełnym backupem wszystkich pamięci trwałych.
 
 Aktualnie działają:
 

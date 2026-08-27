@@ -1,0 +1,42 @@
+{
+  "profile_id": "dm2-main-mcu",
+  "device_label": "DM2 Main Controller",
+  "chip_marking": "NIEPOTWIERDZONE",
+  "profile_confirmed": false,
+  "pyocd_target": "cortex_m",
+  "probe_uid": "LU_2022_8888",
+  "swd_frequency_hz": 1000000,
+  "repeat_reads": 3,
+  "regions": [
+    {
+      "region_id": "internal_flash",
+      "label": "Wewnętrzny Flash MCU",
+      "base_address": 134217728,
+      "length": 524288,
+      "enabled": true,
+      "required": true,
+      "transport": "swd",
+      "note": "Wymaga potwierdzenia pełnego oznaczenia MCU."
+    },
+    {
+      "region_id": "external_nor",
+      "label": "Zewnętrzny Winbond W25Q32",
+      "base_address": 0,
+      "length": 4194304,
+      "enabled": false,
+      "required": true,
+      "transport": "external-spi",
+      "note": "Wymaga osobnej, zweryfikowanej metody odczytu."
+    },
+    {
+      "region_id": "option_bytes",
+      "label": "Option bytes / konfiguracja zabezpieczeń",
+      "base_address": 0,
+      "length": 0,
+      "enabled": false,
+      "required": true,
+      "transport": "target-specific",
+      "note": "Adresy i format zależą od pełnego modelu MCU."
+    }
+  ]
+}
