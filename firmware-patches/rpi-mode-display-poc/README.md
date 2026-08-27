@@ -11,7 +11,9 @@ requests a UI redraw. The normal status text is then replaced with `RPI MODE`.
 Rebooting clears the flag and restores stock display behaviour.
 
 The patch is intentionally not uploaded automatically. `build_patch.py` only
-creates a new binary file and refuses unknown input images or unexpected bytes.
+creates a new binary file and a JSON manifest, and refuses unknown input images
+or unexpected bytes. The manifest records both hashes, the payload location,
+patch points and the fact that option bytes and motor control are untouched.
 
 ## Reconstructed hooks
 

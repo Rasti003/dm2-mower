@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import shutil
 import struct
 import subprocess
@@ -139,11 +140,44 @@ def patch_image(source: Path, destination: Path, payload: bytes, symbols: dict[s
 
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_bytes(image)
+    output_digest = hashlib.sha256(image).hexdigest()
+    manifest_path = destination.with_suffix(destination.suffix + ".manifest.json")
+    manifest = {
+        "schema": "dm2-firmware-patch/v1",
+        "name": "RPI MODE display POC",
+        "target": "DM2-SW-VBW 3.7.4 / main MCU",
+        "input": {"size": len(image), "sha256": digest},
+        "output": {"file": destination.name, "size": len(image), "sha256": output_digest},
+        "behavior": {
+            "activation": "FinSH ui_msg_test()",
+            "effect": "Replace the main status text with RPI MODE until reboot",
+            "motor_control_modified": False,
+            "persistent_configuration_modified": False,
+        },
+        "memory": {
+            "payload_address": f"0x{PAYLOAD_ADDRESS:08X}",
+            "payload_length": len(payload),
+            "reserved_ram_start": f"0x{RPI_STATE_ADDRESS:08X}",
+            "reserved_ram_end": "0x2000FFFF",
+        },
+        "patch_points": [
+            {"address": f"0x{address:08X}", "length": len(expected)}
+            for address, expected in sorted(PATCH_EXPECTATIONS.items())
+        ],
+        "safety": {
+            "automatic_upload": False,
+            "option_bytes_modified": False,
+            "requires_exact_input_hash": True,
+            "rollback_sha256": digest,
+        },
+    }
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     print(f"input sha256:  {digest}")
-    print(f"output sha256: {hashlib.sha256(image).hexdigest()}")
+    print(f"output sha256: {output_digest}")
     print(f"payload:        0x{PAYLOAD_ADDRESS:08X}, {len(payload)} bytes")
     print(f"reserved RAM:   0x{RPI_STATE_ADDRESS:08X}..0x2000FFFF")
     print(f"output:         {destination}")
+    print(f"manifest:       {manifest_path}")
     print("POC only: no motor-control code was added and nothing was flashed.")
 
 

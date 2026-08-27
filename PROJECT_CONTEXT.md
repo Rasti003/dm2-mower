@@ -175,6 +175,22 @@ golden dump, tworzy osobny plik wyjściowy i niczego sam nie wgrywa. Rezerwuje
 niezapisanego Flash od `0x08060400`. Przed próbą na sprzęcie trzeba zweryfikować
 wyjściowy obraz i zachować działającą procedurę odtworzenia przez SWD.
 
+27 sierpnia 2026 zbudowano deterministyczny obraz laboratoryjny z dokładnego
+backupu bieżącej płyty. Wejściowy SHA-256 to
+`45823D14EC9BF15776AA9A50D859AD937CC9E39732E432403D55018DE4184C4A`, a
+wyjściowy SHA-256 to
+`45E22216FC966C2940A33B0B0930899B363D59EF3D93B99A35F1F504213527EA`.
+Zmiana obejmuje 76 bajtów obrazu, w tym 64-bajtowy payload; generator utworzył
+również manifest `dm2-firmware-patch/v1`. Samowystarczalny pakiet z obrazem
+oryginalnym do cofnięcia jest przechowywany poza Git:
+
+- komputer: `E:\Kosiarka\firmware-experiments\20260827-rpi-mode-display-poc.zip`;
+- Raspberry Pi: `~/.local/share/mowbi/firmware-experiments/20260827-rpi-mode-display-poc.zip`;
+- SHA-256 ZIP: `7F67116E3FAFCB71E5EF27D5F19722BBB3CD7757D891D8AA2AFBDCC457A0F1C9`.
+
+Obraz nie został jeszcze zapisany do MCU. Option bytes i tor sterowania silnikami
+nie są modyfikowane.
+
 ## Pliki lokalne i sekrety
 
 `include/wifi_config.h`, `.pio/` oraz `tools/` nie są wersjonowane. Na nowym komputerze skopiuj `include/wifi_config.example.h` do `include/wifi_config.h` i wpisz dane Wi-Fi lokalnie. Nie umieszczaj haseł w Git.
